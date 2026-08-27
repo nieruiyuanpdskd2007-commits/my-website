@@ -1,7 +1,7 @@
 # Hearthstone Standard Agent
 
-面向炉石传说标准模式决策研究的 V0.1 工程。当前版本的验收目标是：**两套固定 30 张牌组，
-由两个 Agent 通过统一的 Observation → Legal Actions → Next State 闭环完整打一局**。
+面向炉石传说标准模式决策研究的 V0.2 工程。离线训练层保持可复现模拟器；实时层已经接入
+**2026 年标准卡牌知识 + Power.log OPTIONS 权威合法动作 + 可解释排序**。
 
 ## 现在已经能做什么
 
@@ -15,6 +15,10 @@
 - 炉石盒子/其他 Meta 胜率数据的 CSV/JSON 导入接口；
 - 可复现种子、详细对局日志和标准库 `unittest` 测试。
 - Windows/macOS 置顶聊天小窗、只读 `Power.log` 监听和隐私最小化的公开事件记录；
+- 2026-08-27 标准环境的 7 个系列、1,184 张可收藏卡牌名称/文本/费用/关键词知识；
+- 解析客户端 `OPTIONS`、`option`、`subOption` 和 `target`，覆盖新卡的实际合法动作与目标；
+- 按场面交换、斩杀序列、伤害/治疗/增益/移除/资源和关键词进行目标级排序；
+- 在小窗中显示置信度、复杂机制降级提示、卡牌识别率和状态完整度；
 - 强制模式策略：练习/好友/复盘可建议，天梯仅记牌与赛后复盘，永不控制鼠标键盘。
 
 ## 运行
@@ -69,9 +73,21 @@ python3 -m live.main --mode ladder --demo --console
 - `unknown`：默认关闭实时建议；
 - 所有模式：不注入游戏进程、不读内存、不显示对手隐藏牌、不点击或拖动卡牌。
 
-目前的日志解析器已经能安全跟随日志、识别实体/公开 Tag/动作块并隐藏对手手牌身份；要让真实
-标准卡组获得准确的逐步建议，还需要下一阶段把完整日志状态映射到 RosettaStone 的合法动作与
-卡牌 mechanics。`--demo` 展示的是这个接口的端到端交互，并不代表所有线上卡牌已经可执行。
+实时合法动作不再由旧模拟器猜测：炉石客户端写入 `Power.log` 的 `OPTIONS` 包含此刻允许的动作、
+子选项和目标，Agent 只排序客户端已经确认合法的候选。HearthstoneJSON 负责补全当前标准卡牌名称、
+文本、费用、身材和关键词；因此新卡更新后不需要先手写规则才能出现在候选列表中。
+
+这里要区分两种覆盖率：**卡牌知识与合法动作覆盖**已经面向当前标准全池；**复杂效果的策略估值**
+仍然是可解释启发式，而不是“最优解证明”。当前自动报告中 1,184/1,184 张卡有知识记录，结构化
+效果平均覆盖率为 60.6%；未完全识别的复杂文本会显著降低置信度，不会伪装成精准结论。运行：
+
+```bash
+python3 scripts/report_standard_coverage.py --output data/knowledge/coverage.json
+```
+
+后续提升策略准确率应使用练习/好友/复盘的高质量 `(公开状态, OPTIONS, 选择, 结果)` 数据训练
+Policy/Value 模型；RosettaStone 仍可作为已实现卡牌的搜索后端，但其公开进度不足以充当 2026
+标准全池规则真值。
 
 ### 打包成 Windows 软件
 
@@ -92,7 +108,7 @@ dist\HearthstoneStandardAgent.exe
 
 ### 注册与登录预留
 
-V0.1 默认是“本地访客”，不会收集或保存密码。主窗口已经保留注册/登录入口，代码通过
+V0.2 默认是“本地访客”，不会收集或保存密码。主窗口已经保留注册/登录入口，代码通过
 `AuthProvider` 隔离认证实现；以后可安全接入正式服务端、邮箱验证、密码哈希、Token 刷新、账号
 注销、隐私政策和云端牌组/复盘同步。没有这些服务端安全能力前，按钮只显示说明，不会假装注册成功。
 
@@ -135,12 +151,13 @@ python3 main.py \
 
 ## 重要边界
 
-`data/cards.json` 是为了验证工程闭环而内置的**小型机制演示卡池**，不是对当前线上标准卡池的
-完整复刻；牌名与数值也不应作为实时天梯依据。当前不会声称支持所有发现、抉择、交易、地标、
-泰坦、星舰、复杂光环/亡语/战吼等机制。
+`data/cards.json` 仍是离线自博弈用的**小型机制演示卡池**；实时顾问使用
+`data/knowledge/cards.collectible.zhCN.json.gz`，两者不要混淆。复杂发现、抉择、地标、泰坦、
+光环、亡语和战吼的合法入口来自客户端 OPTIONS，但启发式评分可能只理解其中一部分文本。
 
-要升级到真正 Standard，应将模拟器后端替换为或接入 RosettaStone，并逐张补齐当前标准系列的
-可执行规则；`HearthstoneEnv`、Agent、编码器、Replay Buffer 和评测层可以保持不变。
+要让**离线自博弈模拟器**执行真正 Standard 全池，应替换模拟器后端或逐张补齐当前标准系列的
+可执行规则；这不影响实时层从客户端 OPTIONS 获取合法动作。`HearthstoneEnv`、Agent、编码器、
+Replay Buffer 和评测层可以保持不变。
 
 ## 自动更新
 
@@ -150,7 +167,7 @@ python3 main.py \
 2. 在内存中检查数据类型、必填字段、重复 ID 和异常卡牌数量；
 3. 生成确定性 gzip 快照、SHA-256、卡牌/系列数和更新时间 manifest；
 4. 若配置了仓库 Secret `BOX_META_URL`，同步你有权使用的盒子/Meta 标准模式 CSV；
-5. 运行完整回归测试，全部通过后才提交数据变化；任一步失败都不会覆盖上一版。
+5. 重新生成标准覆盖率报告并运行完整回归测试，全部通过后才提交数据变化；任一步失败都不会覆盖上一版。
 
 核心规则和模型代码不会“自我改写”。线上标准轮换也不会按日期猜测：`data/standard_sets.json`
 是显式安全门；自动同步发现新系列时会设置 `rotation_review_required`，确认官方轮换后再把系列 ID
@@ -181,8 +198,8 @@ python3 scripts/update_data.py --box-file /path/to/authorized-standard-export.cs
 
 ## 推荐迭代顺序
 
-- V0.1（当前）：完整游戏闭环、Rule > Random 的可重复评测；
-- V0.2：真实标准卡定义同步 + RosettaStone backend adapter + 两套真实固定牌组；
+- V0.1：完整游戏闭环、Rule > Random 的可重复评测；
+- V0.2（当前）：真实标准卡知识 + OPTIONS 合法动作/目标 + 覆盖率感知的实时排序；
 - V0.3：导入对局动作日志做 imitation learning，不只使用总体胜率；
 - V0.5：Entity Transformer + Policy/Value + self-play + information-set search；
 - V1.0：多职业/多套牌、按补丁切片的 Meta/Opponent Model。

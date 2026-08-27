@@ -33,7 +33,7 @@ class DesktopCoreTests(unittest.TestCase):
             self.assertEqual(loaded.mode, "practice")
             self.assertFalse(hasattr(loaded, "password"))
 
-    def test_v01_auth_is_local_guest_only(self) -> None:
+    def test_v02_auth_is_local_guest_only(self) -> None:
         provider = LocalGuestAuth()
         session = provider.current_session()
         self.assertFalse(session.authenticated)

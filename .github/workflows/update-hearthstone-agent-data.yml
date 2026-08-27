@@ -27,6 +27,8 @@ jobs:
           python-version: "3.12"
       - name: Download and validate knowledge snapshots
         run: python scripts/update_data.py
+      - name: Generate Standard coverage report
+        run: python scripts/report_standard_coverage.py --output data/knowledge/coverage.json
       - name: Run regression tests
         run: python -m unittest discover -s tests -v
       - name: Commit validated data changes

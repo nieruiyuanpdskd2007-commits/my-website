@@ -4,8 +4,8 @@ const projects = [
   {
     title: "Hearthstone Standard Agent",
     description:
-      "A reproducible game-AI research environment with hidden-information observations, legal-action search, self-play replay data, and validated card-knowledge updates.",
-    tags: ["Python", "Game AI", "Self-play"],
+      "A desktop Standard assistant with 1,184-card knowledge, authoritative live legal-action tracking, confidence-aware recommendations, and automatic data refreshes.",
+    tags: ["Python", "Desktop AI", "Hearthstone"],
     href: "/projects/hearthstone-agent",
   },
   {

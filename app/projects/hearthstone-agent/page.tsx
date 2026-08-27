@@ -4,28 +4,31 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Hearthstone Standard Agent | Ruiyuan",
   description:
-    "A transparent Hearthstone game-AI environment for legal-action search, self-play, evaluation, and safely refreshed card knowledge.",
+    "A desktop Hearthstone Standard assistant with complete current card knowledge, authoritative legal-action tracking, and confidence-aware recommendations.",
   openGraph: {
     title: "Hearthstone Standard Agent",
     description:
-      "A reproducible game-AI environment for search, self-play, and hidden-information research.",
+      "A desktop Standard assistant with live public-state tracking and explainable recommendations.",
     images: [],
   },
   twitter: {
     card: "summary",
     title: "Hearthstone Standard Agent",
     description:
-      "A reproducible game-AI environment for search, self-play, and hidden-information research.",
+      "A desktop Standard assistant with live public-state tracking and explainable recommendations.",
     images: [],
   },
 };
 
 const capabilities = [
-  "Mulligan, mana, minions, spells, weapons, hero attacks and hero powers",
+  "1,184 collectible cards across the seven current Standard sets in the validated snapshot",
+  "Authoritative legal actions and targets parsed from Power.log OPTIONS packets",
+  "Card names, text, cost, type, mechanics and Standard-set membership available to the advisor",
+  "Visible one-step and multi-action lethal detection with an explainable action sequence",
+  "Effect-aware scoring for damage, healing, draw, summon, buffs, removal, keywords and board pressure",
+  "Confidence automatically reduced when a complex card effect is not fully structured",
   "Opponent hand identities hidden behind a public Observation interface",
-  "Random, interpretable rule-based and rollout-search baselines",
-  "Self-play trajectories with state, action, policy-ready data and outcome",
-  "Validated HearthstoneJSON and authorized meta-statistics refresh pipeline",
+  "Validated HearthstoneJSON refresh pipeline with rotation-review detection and a coverage report",
   "Top-most desktop chat overlay with read-only Power.log event tracking",
   "Installable desktop control center with explicit start, stop, reopen and exit controls",
   "Practice and friendly-match advice; ladder is restricted to tracking and post-game review",
@@ -33,8 +36,9 @@ const capabilities = [
 ];
 
 const roadmap = [
-  ["V0.1", "Playable research loop", "Available now"],
-  ["V0.2", "RosettaStone backend and two live Standard decks", "Next"],
+  ["V0.1", "Playable research loop and desktop shell", "Complete"],
+  ["V0.2", "Current Standard knowledge and authoritative live-action advisor", "Available now"],
+  ["V0.3", "Replay evaluation and deeper per-card effect models", "Next"],
   ["V0.5", "Entity Transformer, Policy + Value and information-set search", "Planned"],
   ["V1.0", "Multiple classes, decks and patch-aware opponent modeling", "Goal"],
 ];
@@ -52,8 +56,8 @@ export default function HearthstoneAgentPage() {
 
         <header className="mt-10 border-b border-stone-300 pb-12">
           <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em]">
-            <span className="rounded-full bg-[#171714] px-3 py-1.5 text-white">V0.1 live</span>
-            <span className="text-stone-500">Game AI · Research environment</span>
+            <span className="rounded-full bg-[#171714] px-3 py-1.5 text-white">V0.2 live</span>
+            <span className="text-stone-500">Desktop assistant · Game AI</span>
           </div>
           <h1 className="mt-6 max-w-4xl text-5xl font-bold tracking-[-0.04em] sm:text-7xl">
             Hearthstone
@@ -61,8 +65,8 @@ export default function HearthstoneAgentPage() {
             Standard Agent
           </h1>
           <p className="mt-7 max-w-3xl text-lg leading-8 text-stone-700 sm:text-xl">
-            A transparent environment for studying decision-making under hidden information—from
-            legal actions and rule baselines to self-play, search, and future Policy–Value models.
+            A desktop assistant that follows the public game state, reads the legal actions Hearthstone
+            exposes to its client, and explains the strongest visible move without controlling the game.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <a
@@ -82,9 +86,9 @@ export default function HearthstoneAgentPage() {
 
         <section className="grid border-b border-stone-300 py-10 sm:grid-cols-3">
           {[
-            ["8,154", "card records in the first validated knowledge snapshot"],
-            ["16", "regression tests covering game flow, desktop settings, privacy and data validation"],
-            ["3", "agent baselines: Random, Rule and rollout search"],
+            ["1,184", "collectible cards in the current seven-set Standard catalogue"],
+            ["20", "regression tests covering live actions, privacy, data validation and game flow"],
+            ["60.6%", "average structured-effect coverage; uncertainty remains visible"],
           ].map(([value, label]) => (
             <div key={label} className="border-stone-300 py-4 sm:border-l sm:px-6 first:sm:border-l-0 first:sm:pl-0">
               <p className="text-4xl font-bold tracking-tight">{value}</p>
@@ -96,10 +100,10 @@ export default function HearthstoneAgentPage() {
         <section className="grid gap-10 border-b border-stone-300 py-14 md:grid-cols-[0.8fr_1.2fr]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">The loop</p>
-            <h2 className="mt-3 text-3xl font-bold">Built around decisions, not screenshots.</h2>
+            <h2 className="mt-3 text-3xl font-bold">Legal moves come from the client, not guesswork.</h2>
           </div>
           <div className="grid gap-3">
-            {["Card knowledge", "Simulator", "Observation encoding", "Policy + Value", "Search", "Self-play"].map(
+            {["Validated Standard catalogue", "Public-state tracker", "Client legal actions", "Effect-aware scoring", "Lethal search", "Desktop overlay"].map(
               (step, index) => (
                 <div key={step} className="flex items-center gap-4 rounded-xl border border-stone-300 bg-white/60 px-5 py-4">
                   <span className="font-mono text-xs text-stone-400">{String(index + 1).padStart(2, "0")}</span>
@@ -113,7 +117,7 @@ export default function HearthstoneAgentPage() {
         <section className="grid gap-10 border-b border-stone-300 py-14 md:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Implemented</p>
-            <h2 className="mt-3 text-3xl font-bold">A complete V0.1 game loop</h2>
+            <h2 className="mt-3 text-3xl font-bold">The V0.2 live-advice pipeline</h2>
           </div>
           <ul className="space-y-4 text-stone-700">
             {capabilities.map((capability) => (
@@ -142,7 +146,7 @@ export default function HearthstoneAgentPage() {
             </code>
           </div>
           <p className="mt-5 max-w-3xl leading-7 text-stone-600">
-            The simulator is intentionally dependency-free. Generate JSONL training samples with
+            The simulator and live parser are intentionally dependency-free. Generate JSONL training samples with
             <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-sm">--replay</code>
             or run batch evaluation with
             <code className="mx-1 rounded bg-white px-1.5 py-0.5 text-sm">--games 100</code>.
@@ -161,11 +165,11 @@ export default function HearthstoneAgentPage() {
             ))}
           </div>
           <aside className="mt-8 rounded-2xl border border-amber-700/20 bg-amber-100/50 p-6 text-sm leading-7 text-amber-950">
-            <strong>Research boundary:</strong> V0.1 uses a compact mechanics demo card pool. The
-            synchronized card catalogue is knowledge data, not proof that every live card effect is
-            executable. Full live Standard support depends on the RosettaStone adapter and verified
-            per-card mechanics. The live overlay never controls game input or reads hidden information;
-            ladder mode deliberately disables in-match move recommendations.
+            <strong>Accuracy boundary:</strong> V0.2 knows every card in the configured current Standard
+            catalogue and uses the client&apos;s own action and target list for legality. Its strategic ranking
+            is still an explainable estimate: structured-effect coverage currently averages 60.6%, and
+            confidence is reduced for unmodeled complex text. The overlay never controls game input or reads
+            hidden information; ladder mode deliberately disables in-match move recommendations.
           </aside>
         </section>
       </article>

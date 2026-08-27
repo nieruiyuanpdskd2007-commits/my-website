@@ -26,6 +26,7 @@ class DesktopApp:
         self.advisor = LiveAdvisor()
         self.controller = LiveController(on_status=self._status_from_thread, on_event=self._event_from_thread)
         self.overlay: ChatOverlay | None = None
+        self.last_recommendation_key = ""
 
         self.root = tk.Tk()
         self.root.title("Hearthstone Standard Agent")
@@ -163,12 +164,13 @@ class DesktopApp:
         )
         self.activity.pack(fill="both", expand=True)
         self.log("软件已启动。选择模式与日志后点击“开始监听”。")
+        self.log(self.controller.snapshot.knowledge_status)
 
         footer = tk.Frame(body, bg="#f7f4ed")
         footer.pack(fill="x", pady=(12, 0))
         tk.Label(
             footer,
-            text="V0.1 · 不注入游戏、不控制输入、不读取隐藏信息",
+            text="V0.2 · 全标准卡牌知识 · 不注入游戏、不控制输入、不读取隐藏信息",
             bg="#f7f4ed",
             fg="#78716c",
             font=("Segoe UI", 9),
@@ -243,7 +245,7 @@ class DesktopApp:
     def auth_not_ready(self) -> None:
         self.messagebox.showinfo(
             "账号功能预留",
-            "V0.1 使用本地访客模式，不收集或保存密码。正式后端、邮箱验证和隐私策略完成后再开放注册登录。",
+            "V0.2 使用本地访客模式，不收集或保存密码。正式后端、邮箱验证和隐私策略完成后再开放注册登录。",
         )
 
     def log(self, message: str) -> None:
@@ -265,6 +267,17 @@ class DesktopApp:
                 self.log(snapshot.history[-1] if snapshot.history else event.kind)
             if self.overlay and event.kind in {"game_start", "game_end"}:
                 self.overlay.post("system", snapshot.history[-1])
+            if event.kind == "options_end" and snapshot.is_my_turn:
+                recommendation = self.advisor.recommend(snapshot)
+                key = recommendation.render()
+                if key != self.last_recommendation_key:
+                    self.last_recommendation_key = key
+                    self.log(
+                        f"动作 {len(snapshot.legal_actions)} 个 · "
+                        f"状态完整度 {snapshot.state_completeness:.0%}"
+                    )
+                    if self.overlay:
+                        self.overlay.post("advisor", key)
 
         self.root.after(0, update)
 
