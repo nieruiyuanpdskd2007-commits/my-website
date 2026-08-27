@@ -168,6 +168,11 @@ def update_cards(
         card["standard_config_match"] = card["set"] in active_sets
     encoded = deterministic_gzip_json(cards)
     previous = load_json(MANIFEST_PATH) if MANIFEST_PATH.exists() else {}
+    previous_cards_manifest = previous.get("cards", {})
+    previous_discovered_sets = set(previous_cards_manifest.get("discovered_sets", []))
+    previous_pending_sets = set(previous_cards_manifest.get("pending_set_review", []))
+    newly_discovered_sets = discovered_sets - previous_discovered_sets
+    pending_set_review = (previous_pending_sets | newly_discovered_sets) - active_sets
     content_hash = sha256(encoded)
     content_changed = previous.get("cards", {}).get("sha256") != content_hash
     if content_changed:
@@ -181,7 +186,8 @@ def update_cards(
         "configured_standard_card_count": sum(
             card["standard_config_match"] for card in cards
         ),
-        "rotation_review_required": bool(discovered_sets - active_sets),
+        "pending_set_review": sorted(pending_set_review),
+        "rotation_review_required": bool(pending_set_review),
     }
     previous_cards = dict(previous.get("cards", {}))
     previous_cards.pop("snapshot_updated_at", None)

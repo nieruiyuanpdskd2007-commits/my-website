@@ -8,6 +8,7 @@ import threading
 from pathlib import Path
 
 from live.advisor import LiveAdvisor
+from live.card_knowledge import StandardCardCatalog
 from live.overlay import ChatOverlay
 from live.power_log import LogTailer, PowerLogParser, discover_power_log
 from live.recorder import PublicReplayRecorder
@@ -16,6 +17,7 @@ from live.types import GameMode, LiveSnapshot, ModePolicy
 
 
 def demo_snapshot(mode: GameMode) -> LiveSnapshot:
+    catalog = StandardCardCatalog.load()
     return LiveSnapshot.from_dict(
         {
             "mode": mode.value,
@@ -28,6 +30,11 @@ def demo_snapshot(mode: GameMode) -> LiveSnapshot:
             "enemy_hero_hp": 6,
             "enemy_armor": 0,
             "enemy_hand_size": 5,
+            "legal_actions_authoritative": True,
+            "state_completeness": 1.0,
+            "card_knowledge_coverage": 1.0,
+            "standard_card_count": catalog.standard_card_count,
+            "knowledge_status": catalog.coverage_summary(),
             "legal_actions": [
                 {
                     "kind": "play_card",
@@ -82,7 +89,9 @@ def main() -> None:
     overlay = ChatOverlay(
         title="Hearthstone Advisor",
         status=status,
-        on_question=lambda question: advisor.answer(question, snapshot),
+        on_question=lambda question: advisor.answer(
+            question, tracker.snapshot if tracker.snapshot.history else snapshot
+        ),
     )
     overlay.post("system", f"当前模式：{mode.value}。{status}。不会控制游戏输入。")
     overlay.post("advisor", advisor.recommend(snapshot).render())
@@ -101,6 +110,8 @@ def main() -> None:
             tracker.apply(event)
             if event.kind in {"game_start", "game_end"}:
                 overlay.post("system", tracker.snapshot.history[-1])
+            elif event.kind == "options_end" and tracker.snapshot.is_my_turn:
+                overlay.post("advisor", advisor.recommend(tracker.snapshot).render())
 
         worker = threading.Thread(
             target=LogTailer(log_path).follow,

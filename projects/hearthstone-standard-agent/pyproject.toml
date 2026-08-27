@@ -1,7 +1,7 @@
 [project]
 name = "hearthstone-standard-agent"
-version = "0.1.0"
-description = "A testable V0.1 decision-agent pipeline for Hearthstone Standard research"
+version = "0.2.0"
+description = "A coverage-aware Hearthstone Standard decision-agent and live advisor"
 requires-python = ">=3.11"
 dependencies = []
 

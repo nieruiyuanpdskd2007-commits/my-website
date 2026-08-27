@@ -12,6 +12,13 @@ a = Analysis(
         (str(root / "data" / "cards.json"), "data"),
         (str(root / "data" / "decks" / "mage.json"), "data/decks"),
         (str(root / "data" / "decks" / "warrior.json"), "data/decks"),
+        (str(root / "data" / "standard_sets.json"), "data"),
+        (
+            str(root / "data" / "knowledge" / "cards.collectible.zhCN.json.gz"),
+            "data/knowledge",
+        ),
+        (str(root / "data" / "knowledge" / "manifest.json"), "data/knowledge"),
+        (str(root / "data" / "knowledge" / "coverage.json"), "data/knowledge"),
     ],
     hiddenimports=["tkinter", "tkinter.ttk", "tkinter.filedialog", "tkinter.messagebox"],
 )

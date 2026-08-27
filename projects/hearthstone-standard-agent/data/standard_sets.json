@@ -1,6 +1,23 @@
 {
   "schema_version": 1,
   "updated_at": "2026-08-27",
-  "active_set_ids": ["CORE"],
-  "note": "CORE is always included. Add the live Standard expansion set IDs only after an official rotation check. The updater deliberately will not guess rotation legality from release dates."
+  "active_set_ids": [
+    "CORE",
+    "EMERALD_DREAM",
+    "THE_LOST_CITY",
+    "TIME_TRAVEL",
+    "CATACLYSM",
+    "ESCAPEFROM_VIOLET_HOLD",
+    "EVENT"
+  ],
+  "official_verification": {
+    "format_year": "Year of the Scarab",
+    "verified_through_patch": "36.4",
+    "sources": [
+      "https://hearthstone.blizzard.com/en-us/expansions-adventures",
+      "https://hearthstone.blizzard.com/en-us/news/24267727",
+      "https://hearthstone.blizzard.com/en-us/news/24293283/364-patch-notes"
+    ]
+  },
+  "note": "Verified Standard knowledge sets for 2026-08-27. Legal actions still come from the live client's OPTIONS packets, so this list controls knowledge/reporting rather than fabricating legality."
 }
