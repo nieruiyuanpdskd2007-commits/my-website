@@ -1,0 +1,21 @@
+{
+  "name": "V0.1 Tempo Mage",
+  "hero_class": "MAGE",
+  "cards": [
+    {"id": "TRAVELING_SQUIRE", "count": 2},
+    {"id": "IRON_HIDE_CUB", "count": 2},
+    {"id": "ARCANE_TRAINEE", "count": 2},
+    {"id": "RAZOR_BOAR", "count": 2},
+    {"id": "NOVICE_SCRIBE", "count": 2},
+    {"id": "WOLF_RIDER", "count": 2},
+    {"id": "STONE_GUARD", "count": 2},
+    {"id": "CHILLWIND_GIANT", "count": 2},
+    {"id": "NIGHT_BLADE", "count": 2},
+    {"id": "BOULDER_COLOSSUS", "count": 2},
+    {"id": "ARCANE_BOLT", "count": 2},
+    {"id": "FROST_BOLT", "count": 2},
+    {"id": "ARCANE_INTELLECT", "count": 2},
+    {"id": "FIREBALL", "count": 2},
+    {"id": "PYROBLAST", "count": 2}
+  ]
+}

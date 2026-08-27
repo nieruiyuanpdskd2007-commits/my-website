@@ -1,0 +1,43 @@
+name: Refresh Hearthstone knowledge
+
+on:
+  schedule:
+    - cron: "17 3 * * 2,5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hearthstone-agent-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/hearthstone-standard-agent
+    env:
+      BOX_META_URL: ${{ secrets.BOX_META_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download and validate knowledge snapshots
+        run: python scripts/update_data.py
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -v
+      - name: Commit validated data changes
+        shell: bash
+        run: |
+          if git diff --quiet -- data/knowledge data/meta/current.csv; then
+            echo "No validated data changes."
+            exit 0
+          fi
+          git config user.name "hearthstone-agent-bot"
+          git config user.email "hearthstone-agent-bot@users.noreply.github.com"
+          git add data/knowledge data/meta/current.csv
+          git commit -m "data: refresh Hearthstone knowledge"
+          git push origin HEAD:main

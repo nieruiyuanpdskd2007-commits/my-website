@@ -1,0 +1,21 @@
+{
+  "name": "V0.1 Midrange Warrior",
+  "hero_class": "WARRIOR",
+  "cards": [
+    {"id": "TRAVELING_SQUIRE", "count": 2},
+    {"id": "IRON_HIDE_CUB", "count": 2},
+    {"id": "ARCANE_TRAINEE", "count": 2},
+    {"id": "RAZOR_BOAR", "count": 2},
+    {"id": "NOVICE_SCRIBE", "count": 2},
+    {"id": "WOLF_RIDER", "count": 2},
+    {"id": "STONE_GUARD", "count": 2},
+    {"id": "CHILLWIND_GIANT", "count": 2},
+    {"id": "SHIELD_BEAR", "count": 2},
+    {"id": "STORM_CHAMPION", "count": 2},
+    {"id": "SHIELD_TAP", "count": 2},
+    {"id": "SHIELD_BLOCK", "count": 2},
+    {"id": "BASH", "count": 2},
+    {"id": "FIERY_AXE", "count": 2},
+    {"id": "ARCANITE_REAPER", "count": 2}
+  ]
+}

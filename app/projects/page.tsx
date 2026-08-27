@@ -1,27 +1,40 @@
+import Link from "next/link";
+
 const projects = [
+  {
+    title: "Hearthstone Standard Agent",
+    description:
+      "A reproducible game-AI research environment with hidden-information observations, legal-action search, self-play replay data, and validated card-knowledge updates.",
+    tags: ["Python", "Game AI", "Self-play"],
+    href: "/projects/hearthstone-agent",
+  },
   {
     title: "Pacman AI Search Project",
     description:
       "Implemented DFS, BFS, UCS, and A* search algorithms in the UC Berkeley Pacman framework. Designed search strategies and heuristics for maze navigation.",
     tags: ["Python", "Search Algorithms", "A*"],
+    href: null,
   },
   {
     title: "Gomoku AI Agent",
     description:
       "Built a search-based Gomoku AI agent with evaluation functions and decision-making strategies for a skill-based Gomoku environment.",
     tags: ["Python", "Game AI", "Minimax"],
+    href: null,
   },
   {
     title: "SVD Image Compression",
     description:
       "Explored singular value decomposition, low-rank approximation, and their application in image compression.",
     tags: ["Linear Algebra", "SVD", "Image Processing"],
+    href: null,
   },
   {
     title: "PCA / KPCA Study Notes",
     description:
       "Studied dimensionality reduction, covariance matrices, kernel methods, and applications in face recognition.",
     tags: ["Machine Learning", "PCA", "KPCA"],
+    href: null,
   },
 ];
 
@@ -62,6 +75,15 @@ export default function ProjectsPage() {
                   </span>
                 ))}
               </div>
+
+              {project.href ? (
+                <Link
+                  href={project.href}
+                  className="mt-6 inline-flex text-sm font-semibold text-black underline decoration-gray-300 underline-offset-4 hover:decoration-black"
+                >
+                  Explore project →
+                </Link>
+              ) : null}
             </article>
           ))}
         </div>

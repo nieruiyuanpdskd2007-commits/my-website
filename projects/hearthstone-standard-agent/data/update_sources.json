@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "cards": {
+    "provider": "HearthstoneJSON",
+    "url": "https://api.hearthstonejson.com/v1/latest/zhCN/cards.collectible.json",
+    "minimum_card_count": 100,
+    "output": "data/knowledge/cards.collectible.zhCN.json.gz"
+  },
+  "meta": {
+    "provider": "user-authorized export",
+    "url_environment_variable": "BOX_META_URL",
+    "output": "data/meta/current.csv"
+  }
+}
