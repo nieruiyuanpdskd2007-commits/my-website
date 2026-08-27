@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-08-27",
+  "active_set_ids": ["CORE"],
+  "note": "CORE is always included. Add the live Standard expansion set IDs only after an official rotation check. The updater deliberately will not guess rotation legality from release dates."
+}

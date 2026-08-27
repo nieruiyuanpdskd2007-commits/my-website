@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "note": "V0.1 demo mechanics catalogue; it is not the live Standard card pool.",
+  "cards": [
+    {"id": "THE_COIN", "name": "The Coin", "card_class": "NEUTRAL", "type": "SPELL", "cost": 0, "effects": {"mana_gain": 1}},
+
+    {"id": "TRAVELING_SQUIRE", "name": "Traveling Squire", "card_class": "NEUTRAL", "type": "MINION", "cost": 1, "attack": 1, "health": 2},
+    {"id": "IRON_HIDE_CUB", "name": "Iron-Hide Cub", "card_class": "NEUTRAL", "type": "MINION", "cost": 1, "attack": 1, "health": 3, "keywords": ["TAUNT"]},
+    {"id": "ARCANE_TRAINEE", "name": "Arcane Trainee", "card_class": "NEUTRAL", "type": "MINION", "cost": 2, "attack": 2, "health": 3},
+    {"id": "RAZOR_BOAR", "name": "Razor Boar", "card_class": "NEUTRAL", "type": "MINION", "cost": 2, "attack": 3, "health": 2},
+    {"id": "NOVICE_SCRIBE", "name": "Novice Scribe", "card_class": "NEUTRAL", "type": "MINION", "cost": 2, "attack": 1, "health": 1, "effects": {"draw": 1}},
+    {"id": "WOLF_RIDER", "name": "Wolf Rider", "card_class": "NEUTRAL", "type": "MINION", "cost": 3, "attack": 3, "health": 1, "keywords": ["CHARGE"]},
+    {"id": "STONE_GUARD", "name": "Stone Guard", "card_class": "NEUTRAL", "type": "MINION", "cost": 3, "attack": 2, "health": 4, "keywords": ["TAUNT"]},
+    {"id": "CHILLWIND_GIANT", "name": "Chillwind Giant", "card_class": "NEUTRAL", "type": "MINION", "cost": 4, "attack": 4, "health": 5},
+    {"id": "SHIELD_BEAR", "name": "Shield Bear", "card_class": "NEUTRAL", "type": "MINION", "cost": 4, "attack": 3, "health": 6, "keywords": ["TAUNT"]},
+    {"id": "NIGHT_BLADE", "name": "Night Blade", "card_class": "NEUTRAL", "type": "MINION", "cost": 5, "attack": 5, "health": 4},
+    {"id": "BOULDER_COLOSSUS", "name": "Boulder Colossus", "card_class": "NEUTRAL", "type": "MINION", "cost": 6, "attack": 6, "health": 7},
+    {"id": "STORM_CHAMPION", "name": "Storm Champion", "card_class": "NEUTRAL", "type": "MINION", "cost": 7, "attack": 7, "health": 7},
+
+    {"id": "ARCANE_BOLT", "name": "Arcane Bolt", "card_class": "MAGE", "type": "SPELL", "cost": 1, "target": "enemy_character", "effects": {"damage": 2}},
+    {"id": "FROST_BOLT", "name": "Frost Bolt", "card_class": "MAGE", "type": "SPELL", "cost": 2, "target": "enemy_character", "effects": {"damage": 3}},
+    {"id": "ARCANE_INTELLECT", "name": "Arcane Intellect", "card_class": "MAGE", "type": "SPELL", "cost": 3, "effects": {"draw": 2}},
+    {"id": "FIREBALL", "name": "Fireball", "card_class": "MAGE", "type": "SPELL", "cost": 4, "target": "enemy_character", "effects": {"damage": 6}},
+    {"id": "PYROBLAST", "name": "Pyroblast", "card_class": "MAGE", "type": "SPELL", "cost": 10, "target": "enemy_character", "effects": {"damage": 10}},
+
+    {"id": "SHIELD_TAP", "name": "Shield Tap", "card_class": "WARRIOR", "type": "SPELL", "cost": 1, "target": "enemy_character", "effects": {"damage": 1, "armor": 2}},
+    {"id": "SHIELD_BLOCK", "name": "Shield Block", "card_class": "WARRIOR", "type": "SPELL", "cost": 3, "effects": {"armor": 5, "draw": 1}},
+    {"id": "BASH", "name": "Bash", "card_class": "WARRIOR", "type": "SPELL", "cost": 3, "target": "enemy_character", "effects": {"damage": 3, "armor": 3}},
+    {"id": "FIERY_AXE", "name": "Fiery Axe", "card_class": "WARRIOR", "type": "WEAPON", "cost": 3, "attack": 3, "durability": 2},
+    {"id": "ARCANITE_REAPER", "name": "Arcanite Reaper", "card_class": "WARRIOR", "type": "WEAPON", "cost": 5, "attack": 5, "durability": 2}
+  ]
+}

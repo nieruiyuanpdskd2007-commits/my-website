@@ -1,0 +1,3 @@
+snapshot_date,mode,rank_band,deck_id,deck_name,hero_class,games,win_rate,opponent_class,matchup_win_rate,card_id,mulligan_keep_rate,drawn_win_rate
+2026-08-27,STANDARD,ALL,demo_mage,V0.1 Tempo Mage,MAGE,1000,52.1%,WARRIOR,49.0%,,,
+2026-08-27,STANDARD,ALL,demo_mage,V0.1 Tempo Mage,MAGE,1000,52.1%,,,ARCANE_BOLT,61.0%,53.5%
