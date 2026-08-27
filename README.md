@@ -34,3 +34,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Paper Library
+
+The `/papers` route is the first product slice of Ruiyuan's private paper library. It currently includes the seeded local collection, daily recommendation feedback, search, topic views, a reading queue, and a guarded import preview.
+
+The interface intentionally does not copy PDFs or private Markdown notes into this public repository. Before production use, create the private Supabase project, apply `supabase/schema.sql`, configure the values in `.env.example`, and connect the upload and recommendation actions to the protected backend.
