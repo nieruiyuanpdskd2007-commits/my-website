@@ -39,4 +39,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 The `/papers` route is the first product slice of Ruiyuan's private paper library. It currently includes the seeded local collection, daily recommendation feedback, search, topic views, a reading queue, and a guarded import preview.
 
-The interface intentionally does not copy PDFs or private Markdown notes into this public repository. Before production use, create the private Supabase project, apply `supabase/schema.sql`, configure the values in `.env.example`, and connect the upload and recommendation actions to the protected backend.
+The interface intentionally does not copy PDFs or private Markdown notes into this public repository. Supabase stores private records and files behind owner-only policies. Daily access uses a password for the configured owner account; email is reserved for the password recovery link.

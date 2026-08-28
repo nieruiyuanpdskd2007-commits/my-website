@@ -16,6 +16,8 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const rawType = url.searchParams.get("type") as EmailOtpType | null;
+  const requestedNext = url.searchParams.get("next");
+  const next = requestedNext === "/papers/reset-password" ? requestedNext : "/papers";
   const supabase = await createClient();
 
   let authError = null;
@@ -31,7 +33,10 @@ export async function GET(request: Request) {
   }
 
   if (authError) {
-    return NextResponse.redirect(new URL("/papers/login?error=invalid-link", url.origin));
+    const errorPath = next === "/papers/reset-password"
+      ? "/papers/forgot-password?error=invalid-link"
+      : "/papers/login?error=invalid-link";
+    return NextResponse.redirect(new URL(errorPath, url.origin));
   }
 
   const { data } = await supabase.auth.getClaims();
@@ -43,5 +48,5 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/papers/login?error=not-owner", url.origin));
   }
 
-  return NextResponse.redirect(new URL("/papers", url.origin));
+  return NextResponse.redirect(new URL(next, url.origin));
 }

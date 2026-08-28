@@ -1,41 +1,36 @@
 "use server";
 
-import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = {
-  status: "idle" | "sent" | "error";
+  status: "idle" | "error";
   message: string;
 };
 
-export async function requestMagicLink(previousState: LoginState): Promise<LoginState> {
+export async function loginWithPassword(
+  previousState: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
   void previousState;
   const email = process.env.PAPER_LIBRARY_OWNER_EMAIL?.trim().toLowerCase();
-  if (!email) {
-    return { status: "error", message: "登录邮箱尚未配置，请稍后再试。" };
-  }
+  const password = String(formData.get("password") ?? "");
 
-  const requestHeaders = await headers();
-  const origin = requestHeaders.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
-  if (!origin) {
-    return { status: "error", message: "网站地址尚未配置，请稍后再试。" };
-  }
+  if (!email) return { status: "error", message: "登录账户尚未配置，请稍后再试。" };
+  if (!password) return { status: "error", message: "请输入密码。" };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${origin.replace(/\/$/, "")}/papers/auth/confirm`,
-      shouldCreateUser: true,
-    },
-  });
-
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    return { status: "error", message: "登录邮件发送失败，请稍后重试。" };
+    return { status: "error", message: "密码不正确。首次使用请点击“忘记密码”设置密码。" };
   }
 
-  return {
-    status: "sent",
-    message: "登录链接已发送到你的邮箱。打开邮件中的链接即可进入论文库。",
-  };
+  const { data } = await supabase.auth.getClaims();
+  const signedInEmail = String(data?.claims?.email ?? "").trim().toLowerCase();
+  if (signedInEmail !== email) {
+    await supabase.auth.signOut();
+    return { status: "error", message: "此账户没有论文库访问权限。" };
+  }
+
+  redirect("/papers");
 }
