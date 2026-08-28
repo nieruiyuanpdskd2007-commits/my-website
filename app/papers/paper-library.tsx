@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { libraryPapers, recommendedPapers, type Paper } from "./data";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import type { RecommendationFeedback } from "@/lib/papers";
+import { registerUploadedFile, setRecommendationAction, signOutPaperLibrary } from "./actions";
+import type { Paper } from "./data";
 
 type Section = "today" | "library" | "search" | "topics" | "reading" | "import";
-type Feedback = "saved" | "later" | "dismissed";
+type Feedback = RecommendationFeedback;
 
 const navigation: { id: Section; label: string; short: string }[] = [
   { id: "today", label: "今日推荐", short: "今日" },
@@ -39,22 +43,38 @@ function PaperMeta({ paper }: { paper: Paper }) {
   );
 }
 
-export default function PaperLibrary() {
+export default function PaperLibrary({
+  library,
+  recommendations,
+  feedback: initialFeedback,
+  dateLabel,
+}: {
+  library: Paper[];
+  recommendations: Paper[];
+  feedback: Record<string, Feedback>;
+  dateLabel: string;
+}) {
+  const router = useRouter();
   const [section, setSection] = useState<Section>("today");
   const [query, setQuery] = useState("");
-  const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
-  const [notice, setNotice] = useState("正在使用现有论文建立你的初始兴趣画像");
-  const [pickedFiles, setPickedFiles] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<Record<string, Feedback>>(initialFeedback);
+  const [notice, setNotice] = useState("推荐反馈会安全保存，并用于调整后续推荐");
+  const [pickedFiles, setPickedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [, startTransition] = useTransition();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const savedRecommendations = recommendedPapers.filter((paper) => feedback[paper.id] === "saved");
-  const readingList = recommendedPapers.filter((paper) => feedback[paper.id] === "later");
-  const fullLibrary = useMemo(() => [...libraryPapers, ...savedRecommendations], [savedRecommendations]);
+  const savedRecommendations = recommendations.filter((paper) => feedback[paper.id] === "saved");
+  const readingList = recommendations.filter((paper) => feedback[paper.id] === "later");
+  const fullLibrary = useMemo(
+    () => [...new Map([...library, ...savedRecommendations].map((paper) => [paper.id, paper])).values()],
+    [library, savedRecommendations],
+  );
   const processedCount = Object.keys(feedback).length;
 
   const searchResults = useMemo(
-    () => [...fullLibrary, ...recommendedPapers.filter((paper) => !feedback[paper.id])].filter((paper) => includesQuery(paper, query)),
-    [feedback, fullLibrary, query],
+    () => [...fullLibrary, ...recommendations.filter((paper) => !feedback[paper.id])].filter((paper) => includesQuery(paper, query)),
+    [feedback, fullLibrary, query, recommendations],
   );
 
   const topics = useMemo(() => {
@@ -64,6 +84,7 @@ export default function PaperLibrary() {
   }, [fullLibrary]);
 
   function giveFeedback(paper: Paper, value: Feedback) {
+    const previous = feedback[paper.id];
     setFeedback((current) => ({ ...current, [paper.id]: value }));
     const message = value === "saved"
       ? `已将《${paper.title}》存入论文库`
@@ -71,6 +92,79 @@ export default function PaperLibrary() {
         ? `已将《${paper.title}》加入稍后阅读`
         : `已减少与《${paper.title}》相似的推荐`;
     setNotice(message);
+
+    startTransition(async () => {
+      const result = await setRecommendationAction(paper.id, value);
+      if (result.ok) return;
+
+      setFeedback((current) => {
+        const next = { ...current };
+        if (previous) next[paper.id] = previous;
+        else delete next[paper.id];
+        return next;
+      });
+      setNotice(result.error);
+    });
+  }
+
+  async function uploadPickedFiles() {
+    if (!pickedFiles.length || uploading) return;
+    setUploading(true);
+    setNotice(`正在上传 0 / ${pickedFiles.length} 个文件`);
+
+    const supabase = createClient();
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const userId = String(claimsData?.claims?.sub ?? "");
+    if (!userId) {
+      setNotice("登录已过期，请重新登录后再上传。");
+      setUploading(false);
+      return;
+    }
+
+    let completed = 0;
+    for (const file of pickedFiles) {
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      const mimeType = file.type || (extension === "pdf" ? "application/pdf" : "text/markdown");
+      if (!["application/pdf", "text/markdown", "text/plain"].includes(mimeType) || file.size > 50 * 1024 * 1024) {
+        setNotice(`已跳过不支持或超过 50 MB 的文件：${file.name}`);
+        continue;
+      }
+
+      const safeName = file.name.replace(/[\\/]/g, "-");
+      const storagePath = `${userId}/${crypto.randomUUID()}/${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("papers").upload(storagePath, file, {
+        contentType: mimeType,
+        upsert: false,
+      });
+
+      if (uploadError) {
+        setNotice(`上传失败：${file.name}`);
+        continue;
+      }
+
+      const result = await registerUploadedFile({
+        storagePath,
+        filename: file.name,
+        mimeType,
+        size: file.size,
+      });
+
+      if (!result.ok) {
+        await supabase.storage.from("papers").remove([storagePath]);
+        setNotice(`${file.name}：${result.error}`);
+        continue;
+      }
+
+      completed += 1;
+      setNotice(`正在上传 ${completed} / ${pickedFiles.length} 个文件`);
+    }
+
+    setUploading(false);
+    if (completed) {
+      setPickedFiles([]);
+      setNotice(`已安全上传 ${completed} 个文件，并加入论文库`);
+      router.refresh();
+    }
   }
 
   function openSection(next: Section) {
@@ -88,7 +182,12 @@ export default function PaperLibrary() {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300">Ruiyuan&apos;s</p>
               <h1 className="mt-1.5 text-xl font-semibold">Paper Library</h1>
             </button>
-            <span className="rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-300">Private</span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-300">Private</span>
+              <form action={signOutPaperLibrary}>
+                <button type="submit" className="rounded-full px-2 py-1 text-xs text-slate-400 transition hover:bg-white/10 hover:text-white">退出</button>
+              </form>
+            </div>
           </div>
 
           <nav aria-label="论文库导航" className="mt-5 grid grid-cols-3 gap-2 lg:mt-10 lg:grid-cols-1">
@@ -126,7 +225,7 @@ export default function PaperLibrary() {
         <section className="min-w-0 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
           <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600">2026年8月27日 · Thursday</p>
+              <p className="text-sm font-medium text-blue-600">{dateLabel}</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
                 {section === "today" && "今日为你挑选的论文"}
                 {section === "library" && "我的论文库"}
@@ -137,7 +236,7 @@ export default function PaperLibrary() {
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
                 {section === "today" && "根据你的 11 篇论文与深度分析生成。每一次选择，都会改善下一次推荐。"}
-                {section === "library" && `共 ${fullLibrary.length} 篇论文，已有 ${libraryPapers.filter((paper) => paper.analysis).length} 篇关联深度分析。`}
+                {section === "library" && `共 ${fullLibrary.length} 篇论文，已有 ${fullLibrary.filter((paper) => paper.analysis).length} 篇关联深度分析。`}
                 {section === "search" && "同时检索已入库论文和今日推荐，支持标题、会议、年份与研究主题。"}
                 {section === "topics" && "一篇论文可以属于多个研究项目；这里展示当前主要研究脉络。"}
                 {section === "reading" && "把感兴趣但暂时没有时间读的论文集中放在这里。"}
@@ -164,12 +263,12 @@ export default function PaperLibrary() {
             )}
           </header>
 
-          {section === "today" ? <TodayView feedback={feedback} processedCount={processedCount} onFeedback={giveFeedback} onOpenLibrary={() => openSection("library")} /> : null}
+          {section === "today" ? <TodayView papers={recommendations} libraryCount={fullLibrary.length} analysisCount={fullLibrary.filter((paper) => paper.analysis).length} feedback={feedback} processedCount={processedCount} onFeedback={giveFeedback} onOpenLibrary={() => openSection("library")} /> : null}
           {section === "library" ? <LibraryView papers={fullLibrary.filter((paper) => includesQuery(paper, query))} /> : null}
           {section === "search" ? <SearchView query={query} results={searchResults} /> : null}
           {section === "topics" ? <TopicsView topics={topics} papers={fullLibrary} /> : null}
           {section === "reading" ? <ReadingView papers={readingList} onSave={(paper) => giveFeedback(paper, "saved")} /> : null}
-          {section === "import" ? <ImportView pickedFiles={pickedFiles} fileInput={fileInput} onFiles={(files) => setPickedFiles(Array.from(files).map((file) => file.name))} /> : null}
+          {section === "import" ? <ImportView pickedFiles={pickedFiles} fileInput={fileInput} uploading={uploading} onUpload={uploadPickedFiles} onFiles={(files) => setPickedFiles(Array.from(files))} /> : null}
         </section>
       </div>
 
@@ -178,10 +277,10 @@ export default function PaperLibrary() {
   );
 }
 
-function Stats({ processedCount, onOpenLibrary }: { processedCount: number; onOpenLibrary: () => void }) {
+function Stats({ libraryCount, analysisCount, processedCount, recommendationCount, onOpenLibrary }: { libraryCount: number; analysisCount: number; processedCount: number; recommendationCount: number; onOpenLibrary: () => void }) {
   return (
     <div className="mt-6 grid gap-4 sm:grid-cols-3">
-      {[[String(libraryPapers.length), "已收录论文"], ["21", "独立深度分析"], [processedCount ? `${processedCount}/10` : "10", processedCount ? "今日已反馈" : "今日待筛选"]].map(([value, label], index) => (
+      {[[String(libraryCount), "已收录论文"], [String(analysisCount), "已关联深度分析"], [processedCount ? `${processedCount}/${recommendationCount}` : String(recommendationCount), processedCount ? "今日已反馈" : "今日待筛选"]].map(([value, label], index) => (
         <button key={label} type="button" onClick={index === 0 ? onOpenLibrary : undefined} className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-slate-300">
           <p className="text-2xl font-semibold tracking-tight">{value}</p>
           <p className="mt-1 text-xs text-slate-500">{label}</p>
@@ -191,17 +290,18 @@ function Stats({ processedCount, onOpenLibrary }: { processedCount: number; onOp
   );
 }
 
-function TodayView({ feedback, processedCount, onFeedback, onOpenLibrary }: { feedback: Record<string, Feedback>; processedCount: number; onFeedback: (paper: Paper, value: Feedback) => void; onOpenLibrary: () => void }) {
+function TodayView({ papers, libraryCount, analysisCount, feedback, processedCount, onFeedback, onOpenLibrary }: { papers: Paper[]; libraryCount: number; analysisCount: number; feedback: Record<string, Feedback>; processedCount: number; onFeedback: (paper: Paper, value: Feedback) => void; onOpenLibrary: () => void }) {
+  const progress = papers.length ? Math.round((processedCount / papers.length) * 100) : 0;
   return (
     <>
-      <Stats processedCount={processedCount} onOpenLibrary={onOpenLibrary} />
+      <Stats libraryCount={libraryCount} analysisCount={analysisCount} processedCount={processedCount} recommendationCount={papers.length} onOpenLibrary={onOpenLibrary} />
       <div className="mt-8 flex items-end justify-between gap-4">
         <div><h3 className="text-lg font-semibold">推荐队列</h3><p className="mt-1 text-xs text-slate-500">每日更新 10 篇 · 20% 用于探索新方向</p></div>
-        <div className="text-right"><p className="text-xs font-medium text-slate-600">今日进度 {processedCount}/10</p><div className="mt-2 h-1.5 w-28 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${processedCount * 10}%` }} /></div></div>
+        <div className="text-right"><p className="text-xs font-medium text-slate-600">今日进度 {processedCount}/{papers.length}</p><div className="mt-2 h-1.5 w-28 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} /></div></div>
       </div>
 
       <div className="mt-4 space-y-4">
-        {recommendedPapers.map((paper, index) => {
+        {papers.map((paper, index) => {
           const state = feedback[paper.id];
           return (
             <article key={paper.id} className={`grid gap-5 rounded-2xl border bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition md:grid-cols-[1fr_auto] md:p-6 ${state ? "border-slate-200 opacity-70" : "border-slate-200 hover:border-blue-200"}`}>
@@ -220,6 +320,7 @@ function TodayView({ feedback, processedCount, onFeedback, onOpenLibrary }: { fe
           );
         })}
       </div>
+      {papers.length === 0 ? <EmptyState title="今天还没有推荐" text="推荐任务生成后会显示在这里。" /> : null}
     </>
   );
 }
@@ -268,7 +369,7 @@ function ReadingView({ papers, onSave }: { papers: Paper[]; onSave: (paper: Pape
   return <div className="mt-6 space-y-4">{papers.map((paper) => <article key={paper.id} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"><div><PaperMeta paper={paper} /><h3 className="mt-3 font-semibold">{paper.title}</h3></div><button type="button" onClick={() => onSave(paper)} className="h-10 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-blue-600">读完后入库</button></article>)}</div>;
 }
 
-function ImportView({ pickedFiles, fileInput, onFiles }: { pickedFiles: string[]; fileInput: React.RefObject<HTMLInputElement | null>; onFiles: (files: FileList) => void }) {
+function ImportView({ pickedFiles, fileInput, uploading, onUpload, onFiles }: { pickedFiles: File[]; fileInput: React.RefObject<HTMLInputElement | null>; uploading: boolean; onUpload: () => void; onFiles: (files: FileList) => void }) {
   return (
     <div className="mt-6 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
       <button type="button" onClick={() => fileInput.current?.click()} className="group flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center transition hover:border-blue-400 hover:bg-blue-50/30">
@@ -278,7 +379,7 @@ function ImportView({ pickedFiles, fileInput, onFiles }: { pickedFiles: string[]
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="font-semibold">已发现的本地资料</h3><div className="mt-4 space-y-3"><SourceRow name="桌面 / 论文" detail="11 份 PDF · 约 90 MB" status="待安全上传" /><SourceRow name="桌面 / 论文方法深度分析" detail="42 份 Markdown · 含重复版本" status="待去重关联" /></div><p className="mt-5 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">在私人存储与登录保护完成前，不会把这些文件放进公开网站仓库。</p>
       </div>
-      {pickedFiles.length ? <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2"><div className="flex items-center justify-between"><h3 className="font-semibold">本次选择</h3><span className="text-xs text-slate-500">{pickedFiles.length} 个文件</span></div><ul className="mt-4 grid gap-2 sm:grid-cols-2">{pickedFiles.slice(0, 8).map((name) => <li key={name} className="truncate rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{name}</li>)}</ul></div> : null}
+      {pickedFiles.length ? <div className="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">本次选择</h3><span className="mt-1 block text-xs text-slate-500">{pickedFiles.length} 个文件 · 将上传到私人存储</span></div><button type="button" disabled={uploading} onClick={onUpload} className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:bg-slate-400">{uploading ? "正在上传…" : "开始安全上传"}</button></div><ul className="mt-4 grid gap-2 sm:grid-cols-2">{pickedFiles.slice(0, 8).map((file, index) => <li key={`${file.name}-${index}`} className="flex min-w-0 items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"><span className="truncate">{file.name}</span><span className="shrink-0 text-slate-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span></li>)}</ul></div> : null}
     </div>
   );
 }
