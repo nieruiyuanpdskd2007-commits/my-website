@@ -36,7 +36,7 @@ export default function LoginForm() {
           {state.message || "仅论文库所有者可以登录。"}
         </p>
         <Link href="/papers/forgot-password" className="shrink-0 text-sm font-medium text-blue-600 hover:text-blue-700">
-          忘记密码
+          首次设置 / 忘记密码
         </Link>
       </div>
     </form>
