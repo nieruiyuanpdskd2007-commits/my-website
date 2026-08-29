@@ -9,6 +9,9 @@ export type Paper = {
   analysis?: boolean;
   reason?: string;
   match?: number;
+  hasPdf?: boolean;
+  hasAnalysisFile?: boolean;
+  sourceLinkKind?: "direct" | "search";
 };
 
 export const libraryPapers: Paper[] = [

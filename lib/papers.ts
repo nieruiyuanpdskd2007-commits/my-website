@@ -14,6 +14,9 @@ type PaperRow = {
   topic: string | null;
   reading_status: "unread" | "reading" | "read";
   origin: "upload" | "doi" | "arxiv" | "recommendation";
+  doi: string | null;
+  arxiv_id: string | null;
+  source_url: string | null;
   pdf_storage_path: string | null;
   analysis_storage_path: string | null;
   is_in_library: boolean;
@@ -61,6 +64,9 @@ function toPaper(row: PaperRow, recommendation?: RecommendationRow): Paper {
     analysis: Boolean(row.analysis_storage_path) || Boolean(originalSeed?.analysis),
     reason: recommendation?.reason ?? undefined,
     match: score == null || Number.isNaN(score) ? undefined : Math.round(score * 100),
+    hasPdf: Boolean(row.pdf_storage_path),
+    hasAnalysisFile: Boolean(row.analysis_storage_path),
+    sourceLinkKind: row.source_url || row.doi || row.arxiv_id ? "direct" : "search",
   };
 }
 
@@ -145,7 +151,7 @@ export async function loadPaperLibrary() {
   const [{ data: paperData, error: paperError }, { data: recommendationData, error: recommendationError }] = await Promise.all([
     supabase
       .from("papers")
-      .select("id, slug, title, published_year, venue, topic, reading_status, origin, pdf_storage_path, analysis_storage_path, is_in_library")
+      .select("id, slug, title, published_year, venue, topic, reading_status, origin, doi, arxiv_id, source_url, pdf_storage_path, analysis_storage_path, is_in_library")
       .eq("owner_id", userId)
       .order("created_at", { ascending: true }),
     supabase

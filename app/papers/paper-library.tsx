@@ -43,6 +43,45 @@ function PaperMeta({ paper }: { paper: Paper }) {
   );
 }
 
+function paperOpenPath(paper: Paper, kind: "pdf" | "source" | "analysis") {
+  return `/papers/open/${encodeURIComponent(paper.id)}?kind=${kind}`;
+}
+
+function PaperLinks({ paper, compact = false }: { paper: Paper; compact?: boolean }) {
+  return (
+    <div className={`flex flex-wrap items-center ${compact ? "gap-x-3 gap-y-2" : "gap-2"}`}>
+      {paper.hasPdf ? (
+        <a
+          href={paperOpenPath(paper, "pdf")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+        >
+          查看 PDF ↗
+        </a>
+      ) : null}
+      <a
+        href={paperOpenPath(paper, "source")}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${paper.hasPdf || !compact ? "inline-flex h-9 items-center rounded-lg border border-slate-300 px-3" : "font-medium text-blue-600 hover:text-blue-700"} text-xs transition hover:border-blue-300 hover:bg-blue-50`}
+      >
+        {paper.sourceLinkKind === "direct" ? "论文网站 ↗" : "查找原文 ↗"}
+      </a>
+      {paper.hasAnalysisFile ? (
+        <a
+          href={paperOpenPath(paper, "analysis")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-slate-600 transition hover:text-blue-600"
+        >
+          查看分析 ↗
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 export default function PaperLibrary({
   library,
   recommendations,
@@ -309,6 +348,7 @@ function TodayView({ papers, libraryCount, analysisCount, feedback, processedCou
                 <PaperMeta paper={paper} />
                 <h4 className="mt-3 text-lg font-semibold leading-7 tracking-tight sm:text-xl"><span className="mr-3 text-sm font-medium text-slate-300">{String(index + 1).padStart(2, "0")}</span>{paper.title}</h4>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{paper.reason}</p>
+                <div className="mt-4"><PaperLinks paper={paper} compact /></div>
                 {state ? <p className="mt-3 text-xs font-medium text-blue-600">{state === "saved" && "✓ 已存入论文库"}{state === "later" && "✓ 已加入稍后阅读"}{state === "dismissed" && "✓ 已记录为不感兴趣"}</p> : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 md:w-36 md:flex-col md:items-stretch md:justify-center">
@@ -328,13 +368,13 @@ function TodayView({ papers, libraryCount, analysisCount, feedback, processedCou
 function LibraryView({ papers }: { papers: Paper[] }) {
   return (
     <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="hidden grid-cols-[minmax(0,1fr)_140px_100px_100px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-medium text-slate-500 md:grid"><span>论文</span><span>主题</span><span>状态</span><span>资料</span></div>
+      <div className="hidden grid-cols-[minmax(0,1fr)_140px_100px_220px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-medium text-slate-500 md:grid"><span>论文</span><span>主题</span><span>状态</span><span>打开资料</span></div>
       {papers.map((paper) => (
-        <article key={paper.id} className="grid gap-3 border-b border-slate-100 px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_140px_100px_100px] md:items-center md:gap-4">
+        <article key={paper.id} className="grid gap-3 border-b border-slate-100 px-5 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_140px_100px_220px] md:items-center md:gap-4">
           <div className="min-w-0"><h3 className="truncate text-sm font-semibold" title={paper.title}>{paper.title}</h3><p className="mt-1 text-xs text-slate-500">{paper.venue} · {paper.year}</p></div>
           <span className="text-xs text-slate-600">{paper.topic}</span>
           <span className={`w-fit rounded-full px-2 py-1 text-xs ${paper.status === "已读" ? "bg-emerald-50 text-emerald-700" : paper.status === "阅读中" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{paper.status}</span>
-          <span className="text-xs font-medium text-slate-500">{paper.analysis ? "PDF + 分析" : paper.source}</span>
+          <PaperLinks paper={paper} />
         </article>
       ))}
       {papers.length === 0 ? <EmptyState title="没有找到论文" text="试试标题、会议名称或研究主题。" /> : null}
@@ -348,7 +388,7 @@ function SearchView({ query, results }: { query: string; results: Paper[] }) {
     <div className="mt-6">
       <p className="text-sm text-slate-500">找到 {results.length} 条与“{query}”相关的结果</p>
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {results.map((paper) => <article key={paper.id} className="rounded-2xl border border-slate-200 bg-white p-5"><PaperMeta paper={paper} /><h3 className="mt-3 text-base font-semibold leading-6">{paper.title}</h3><p className="mt-3 text-xs text-slate-500">来源：{paper.source}{paper.analysis ? " · 已关联深度分析" : ""}</p></article>)}
+        {results.map((paper) => <article key={paper.id} className="rounded-2xl border border-slate-200 bg-white p-5"><PaperMeta paper={paper} /><h3 className="mt-3 text-base font-semibold leading-6">{paper.title}</h3><p className="mt-3 text-xs text-slate-500">来源：{paper.source}{paper.analysis ? " · 已关联深度分析" : ""}</p><div className="mt-4"><PaperLinks paper={paper} compact /></div></article>)}
       </div>
       {results.length === 0 ? <EmptyState title="没有匹配结果" text="换一个更宽泛的关键词，或到导入页面添加论文。" /> : null}
     </div>
@@ -366,7 +406,7 @@ function TopicsView({ topics, papers }: { topics: [string, number][]; papers: Pa
 
 function ReadingView({ papers, onSave }: { papers: Paper[]; onSave: (paper: Paper) => void }) {
   if (!papers.length) return <EmptyState title="稍后阅读还是空的" text="在今日推荐中点击“稍后阅读”，论文就会出现在这里。" />;
-  return <div className="mt-6 space-y-4">{papers.map((paper) => <article key={paper.id} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"><div><PaperMeta paper={paper} /><h3 className="mt-3 font-semibold">{paper.title}</h3></div><button type="button" onClick={() => onSave(paper)} className="h-10 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-blue-600">读完后入库</button></article>)}</div>;
+  return <div className="mt-6 space-y-4">{papers.map((paper) => <article key={paper.id} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"><div><PaperMeta paper={paper} /><h3 className="mt-3 font-semibold">{paper.title}</h3><div className="mt-4"><PaperLinks paper={paper} compact /></div></div><button type="button" onClick={() => onSave(paper)} className="h-10 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-blue-600">读完后入库</button></article>)}</div>;
 }
 
 function ImportView({ pickedFiles, fileInput, uploading, onUpload, onFiles }: { pickedFiles: File[]; fileInput: React.RefObject<HTMLInputElement | null>; uploading: boolean; onUpload: () => void; onFiles: (files: FileList) => void }) {
