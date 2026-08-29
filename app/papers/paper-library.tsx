@@ -1,11 +1,19 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { RecommendationFeedback } from "@/lib/papers";
 import { registerUploadedFile, setRecommendationAction, signOutPaperLibrary } from "./actions";
 import type { Paper } from "./data";
+import {
+  canWritePaperDirectory,
+  choosePaperDirectory,
+  loadPaperDirectory,
+  savePaperPdf,
+  supportsPaperDirectoryPicker,
+  type PaperDirectoryHandle,
+} from "./local-paper-folder";
 
 type Section = "today" | "library" | "search" | "topics" | "reading" | "import";
 type Feedback = RecommendationFeedback;
@@ -47,18 +55,37 @@ function paperOpenPath(paper: Paper, kind: "pdf" | "source" | "analysis") {
   return `/papers/open/${encodeURIComponent(paper.id)}?kind=${kind}`;
 }
 
-function PaperLinks({ paper, compact = false }: { paper: Paper; compact?: boolean }) {
+function PaperLinks({
+  paper,
+  compact = false,
+  onSaveLocally,
+}: {
+  paper: Paper;
+  compact?: boolean;
+  onSaveLocally?: (paper: Paper) => void;
+}) {
   return (
     <div className={`flex flex-wrap items-center ${compact ? "gap-x-3 gap-y-2" : "gap-2"}`}>
       {paper.hasPdf ? (
-        <a
-          href={paperOpenPath(paper, "pdf")}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
-        >
-          查看 PDF ↗
-        </a>
+        <>
+          <a
+            href={paperOpenPath(paper, "pdf")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+          >
+            查看 PDF ↗
+          </a>
+          {onSaveLocally ? (
+            <button
+              type="button"
+              onClick={() => onSaveLocally(paper)}
+              className="inline-flex h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+            >
+              保存到本地
+            </button>
+          ) : null}
+        </>
       ) : null}
       <a
         href={paperOpenPath(paper, "source")}
@@ -98,6 +125,8 @@ export default function PaperLibrary({
   const [query, setQuery] = useState("");
   const [feedback, setFeedback] = useState<Record<string, Feedback>>(initialFeedback);
   const [notice, setNotice] = useState("推荐反馈会安全保存，并用于调整后续推荐");
+  const [paperDirectory, setPaperDirectory] = useState<PaperDirectoryHandle | null>(null);
+  const [directoryPickerSupported, setDirectoryPickerSupported] = useState(false);
   const [pickedFiles, setPickedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [, startTransition] = useTransition();
@@ -111,6 +140,19 @@ export default function PaperLibrary({
   );
   const processedCount = Object.keys(feedback).length;
 
+  useEffect(() => {
+    const supported = supportsPaperDirectoryPicker();
+    loadPaperDirectory()
+      .then((handle) => {
+        setDirectoryPickerSupported(supported);
+        setPaperDirectory(handle);
+      })
+      .catch(() => {
+        setDirectoryPickerSupported(supported);
+        setPaperDirectory(null);
+      });
+  }, []);
+
   const searchResults = useMemo(
     () => [...fullLibrary, ...recommendations.filter((paper) => !feedback[paper.id])].filter((paper) => includesQuery(paper, query)),
     [feedback, fullLibrary, query, recommendations],
@@ -122,7 +164,60 @@ export default function PaperLibrary({
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [fullLibrary]);
 
-  function giveFeedback(paper: Paper, value: Feedback) {
+  async function configurePaperDirectory() {
+    try {
+      const handle = await choosePaperDirectory();
+      setPaperDirectory(handle);
+      setNotice(`已选择“${handle.name}”，有可用 PDF 时将自动保存到此文件夹`);
+      return handle;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setNotice("未更改本地保存文件夹");
+      } else {
+        setNotice("无法使用该文件夹，请检查 Chrome 的文件访问权限");
+      }
+      return null;
+    }
+  }
+
+  async function preparePaperDirectory() {
+    let directory = paperDirectory;
+    if (!directory) directory = await configurePaperDirectory();
+    if (!directory) return null;
+
+    const canWrite = await canWritePaperDirectory(directory, true).catch(() => false);
+    if (!canWrite) {
+      setNotice("未获得文件夹写入权限，请重新选择本地保存文件夹");
+      return null;
+    }
+    return directory;
+  }
+
+  async function savePaperLocally(paper: Paper) {
+    if (!paper.hasPdf) {
+      setNotice(`《${paper.title}》暂时没有可直接下载的 PDF`);
+      return;
+    }
+    const directory = await preparePaperDirectory();
+    if (!directory) return;
+
+    setNotice(`正在把《${paper.title}》保存到“${directory.name}”…`);
+    try {
+      await savePaperPdf(directory, paper.id, paper.title);
+      setNotice(`《${paper.title}》已保存到“${directory.name}”`);
+    } catch {
+      setNotice("PDF 下载失败，请稍后重试或点击“查看 PDF”阅读");
+    }
+  }
+
+  async function giveFeedback(paper: Paper, value: Feedback) {
+    let directory = paperDirectory;
+    let canSaveLocally = false;
+    if (value === "saved" && paper.hasPdf && (directoryPickerSupported || supportsPaperDirectoryPicker())) {
+      directory = await preparePaperDirectory();
+      canSaveLocally = Boolean(directory);
+    }
+
     const previous = feedback[paper.id];
     setFeedback((current) => ({ ...current, [paper.id]: value }));
     const message = value === "saved"
@@ -134,7 +229,21 @@ export default function PaperLibrary({
 
     startTransition(async () => {
       const result = await setRecommendationAction(paper.id, value);
-      if (result.ok) return;
+      if (result.ok) {
+        if (value === "saved" && paper.hasPdf && directory && canSaveLocally) {
+          try {
+            await savePaperPdf(directory, paper.id, paper.title);
+            setNotice(`《${paper.title}》已存入论文库，并下载到“${directory.name}”`);
+          } catch {
+            setNotice(`《${paper.title}》已存入论文库；PDF 下载失败，可点击“查看 PDF”阅读`);
+          }
+        } else if (value === "saved" && !paper.hasPdf) {
+          setNotice(`《${paper.title}》已存入论文库；暂未找到可直接下载的 PDF`);
+        } else if (value === "saved" && directoryPickerSupported && !canSaveLocally) {
+          setNotice(`《${paper.title}》已存入论文库；本次未获得文件夹写入权限`);
+        }
+        return;
+      }
 
       setFeedback((current) => {
         const next = { ...current };
@@ -284,29 +393,41 @@ export default function PaperLibrary({
             </div>
 
             {section !== "import" ? (
-              <label className="relative block w-full xl:w-80">
-                <span className="sr-only">搜索论文</span>
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    if (event.target.value && section !== "search") setSection("search");
-                  }}
-                  placeholder="搜索标题、会议或方法…"
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                />
-              </label>
+              <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+                {directoryPickerSupported ? (
+                  <button
+                    type="button"
+                    onClick={configurePaperDirectory}
+                    className="h-11 shrink-0 rounded-xl border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"
+                    title="选择自动保存 PDF 的本地文件夹"
+                  >
+                    {paperDirectory ? `自动保存：${paperDirectory.name}` : "设置自动保存文件夹"}
+                  </button>
+                ) : null}
+                <label className="relative block w-full sm:w-80">
+                  <span className="sr-only">搜索论文</span>
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      if (event.target.value && section !== "search") setSection("search");
+                    }}
+                    placeholder="搜索标题、会议或方法…"
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+                </label>
+              </div>
             ) : (
               <button type="button" onClick={() => fileInput.current?.click()} className="h-11 rounded-xl bg-slate-950 px-5 text-sm font-medium text-white transition hover:bg-blue-600">选择文件</button>
             )}
           </header>
 
-          {section === "today" ? <TodayView papers={recommendations} libraryCount={fullLibrary.length} analysisCount={fullLibrary.filter((paper) => paper.analysis).length} feedback={feedback} processedCount={processedCount} onFeedback={giveFeedback} onOpenLibrary={() => openSection("library")} /> : null}
-          {section === "library" ? <LibraryView papers={fullLibrary.filter((paper) => includesQuery(paper, query))} /> : null}
-          {section === "search" ? <SearchView query={query} results={searchResults} /> : null}
+          {section === "today" ? <TodayView papers={recommendations} libraryCount={fullLibrary.length} analysisCount={fullLibrary.filter((paper) => paper.analysis).length} feedback={feedback} processedCount={processedCount} onFeedback={giveFeedback} onLocalSave={savePaperLocally} onOpenLibrary={() => openSection("library")} /> : null}
+          {section === "library" ? <LibraryView papers={fullLibrary.filter((paper) => includesQuery(paper, query))} onLocalSave={savePaperLocally} /> : null}
+          {section === "search" ? <SearchView query={query} results={searchResults} onLocalSave={savePaperLocally} /> : null}
           {section === "topics" ? <TopicsView topics={topics} papers={fullLibrary} /> : null}
-          {section === "reading" ? <ReadingView papers={readingList} onSave={(paper) => giveFeedback(paper, "saved")} /> : null}
+          {section === "reading" ? <ReadingView papers={readingList} onSave={(paper) => giveFeedback(paper, "saved")} onLocalSave={savePaperLocally} /> : null}
           {section === "import" ? <ImportView pickedFiles={pickedFiles} fileInput={fileInput} uploading={uploading} onUpload={uploadPickedFiles} onFiles={(files) => setPickedFiles(Array.from(files))} /> : null}
         </section>
       </div>
@@ -329,7 +450,7 @@ function Stats({ libraryCount, analysisCount, processedCount, recommendationCoun
   );
 }
 
-function TodayView({ papers, libraryCount, analysisCount, feedback, processedCount, onFeedback, onOpenLibrary }: { papers: Paper[]; libraryCount: number; analysisCount: number; feedback: Record<string, Feedback>; processedCount: number; onFeedback: (paper: Paper, value: Feedback) => void; onOpenLibrary: () => void }) {
+function TodayView({ papers, libraryCount, analysisCount, feedback, processedCount, onFeedback, onLocalSave, onOpenLibrary }: { papers: Paper[]; libraryCount: number; analysisCount: number; feedback: Record<string, Feedback>; processedCount: number; onFeedback: (paper: Paper, value: Feedback) => void; onLocalSave: (paper: Paper) => void; onOpenLibrary: () => void }) {
   const progress = papers.length ? Math.round((processedCount / papers.length) * 100) : 0;
   return (
     <>
@@ -348,7 +469,7 @@ function TodayView({ papers, libraryCount, analysisCount, feedback, processedCou
                 <PaperMeta paper={paper} />
                 <h4 className="mt-3 text-lg font-semibold leading-7 tracking-tight sm:text-xl"><span className="mr-3 text-sm font-medium text-slate-300">{String(index + 1).padStart(2, "0")}</span>{paper.title}</h4>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{paper.reason}</p>
-                <div className="mt-4"><PaperLinks paper={paper} compact /></div>
+                <div className="mt-4"><PaperLinks paper={paper} compact onSaveLocally={onLocalSave} /></div>
                 {state ? <p className="mt-3 text-xs font-medium text-blue-600">{state === "saved" && "✓ 已存入论文库"}{state === "later" && "✓ 已加入稍后阅读"}{state === "dismissed" && "✓ 已记录为不感兴趣"}</p> : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 md:w-36 md:flex-col md:items-stretch md:justify-center">
@@ -365,7 +486,7 @@ function TodayView({ papers, libraryCount, analysisCount, feedback, processedCou
   );
 }
 
-function LibraryView({ papers }: { papers: Paper[] }) {
+function LibraryView({ papers, onLocalSave }: { papers: Paper[]; onLocalSave: (paper: Paper) => void }) {
   return (
     <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="hidden grid-cols-[minmax(0,1fr)_140px_100px_220px] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-medium text-slate-500 md:grid"><span>论文</span><span>主题</span><span>状态</span><span>打开资料</span></div>
@@ -374,7 +495,7 @@ function LibraryView({ papers }: { papers: Paper[] }) {
           <div className="min-w-0"><h3 className="truncate text-sm font-semibold" title={paper.title}>{paper.title}</h3><p className="mt-1 text-xs text-slate-500">{paper.venue} · {paper.year}</p></div>
           <span className="text-xs text-slate-600">{paper.topic}</span>
           <span className={`w-fit rounded-full px-2 py-1 text-xs ${paper.status === "已读" ? "bg-emerald-50 text-emerald-700" : paper.status === "阅读中" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{paper.status}</span>
-          <PaperLinks paper={paper} />
+          <PaperLinks paper={paper} onSaveLocally={onLocalSave} />
         </article>
       ))}
       {papers.length === 0 ? <EmptyState title="没有找到论文" text="试试标题、会议名称或研究主题。" /> : null}
@@ -382,13 +503,13 @@ function LibraryView({ papers }: { papers: Paper[] }) {
   );
 }
 
-function SearchView({ query, results }: { query: string; results: Paper[] }) {
+function SearchView({ query, results, onLocalSave }: { query: string; results: Paper[]; onLocalSave: (paper: Paper) => void }) {
   if (!query) return <EmptyState title="输入你想研究的问题" text="例如：无动作标签的视频世界模型、世界坐标人体恢复、CVPR 2025。" />;
   return (
     <div className="mt-6">
       <p className="text-sm text-slate-500">找到 {results.length} 条与“{query}”相关的结果</p>
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {results.map((paper) => <article key={paper.id} className="rounded-2xl border border-slate-200 bg-white p-5"><PaperMeta paper={paper} /><h3 className="mt-3 text-base font-semibold leading-6">{paper.title}</h3><p className="mt-3 text-xs text-slate-500">来源：{paper.source}{paper.analysis ? " · 已关联深度分析" : ""}</p><div className="mt-4"><PaperLinks paper={paper} compact /></div></article>)}
+        {results.map((paper) => <article key={paper.id} className="rounded-2xl border border-slate-200 bg-white p-5"><PaperMeta paper={paper} /><h3 className="mt-3 text-base font-semibold leading-6">{paper.title}</h3><p className="mt-3 text-xs text-slate-500">来源：{paper.source}{paper.analysis ? " · 已关联深度分析" : ""}</p><div className="mt-4"><PaperLinks paper={paper} compact onSaveLocally={onLocalSave} /></div></article>)}
       </div>
       {results.length === 0 ? <EmptyState title="没有匹配结果" text="换一个更宽泛的关键词，或到导入页面添加论文。" /> : null}
     </div>
@@ -404,9 +525,9 @@ function TopicsView({ topics, papers }: { topics: [string, number][]; papers: Pa
   );
 }
 
-function ReadingView({ papers, onSave }: { papers: Paper[]; onSave: (paper: Paper) => void }) {
+function ReadingView({ papers, onSave, onLocalSave }: { papers: Paper[]; onSave: (paper: Paper) => void; onLocalSave: (paper: Paper) => void }) {
   if (!papers.length) return <EmptyState title="稍后阅读还是空的" text="在今日推荐中点击“稍后阅读”，论文就会出现在这里。" />;
-  return <div className="mt-6 space-y-4">{papers.map((paper) => <article key={paper.id} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"><div><PaperMeta paper={paper} /><h3 className="mt-3 font-semibold">{paper.title}</h3><div className="mt-4"><PaperLinks paper={paper} compact /></div></div><button type="button" onClick={() => onSave(paper)} className="h-10 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-blue-600">读完后入库</button></article>)}</div>;
+  return <div className="mt-6 space-y-4">{papers.map((paper) => <article key={paper.id} className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"><div><PaperMeta paper={paper} /><h3 className="mt-3 font-semibold">{paper.title}</h3><div className="mt-4"><PaperLinks paper={paper} compact onSaveLocally={onLocalSave} /></div></div><button type="button" onClick={() => onSave(paper)} className="h-10 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-blue-600">读完后入库</button></article>)}</div>;
 }
 
 function ImportView({ pickedFiles, fileInput, uploading, onUpload, onFiles }: { pickedFiles: File[]; fileInput: React.RefObject<HTMLInputElement | null>; uploading: boolean; onUpload: () => void; onFiles: (files: FileList) => void }) {

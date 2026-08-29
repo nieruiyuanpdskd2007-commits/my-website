@@ -50,7 +50,7 @@ export function chinaDateLabel() {
 }
 
 function toPaper(row: PaperRow, recommendation?: RecommendationRow): Paper {
-  const originalSeed = seedLibrary.find((paper) => paper.id === row.slug);
+  const originalSeed = [...seedLibrary, ...seedRecommendations].find((paper) => paper.id === row.slug);
   const score = recommendation?.score == null ? undefined : Number(recommendation.score);
 
   return {
@@ -64,9 +64,9 @@ function toPaper(row: PaperRow, recommendation?: RecommendationRow): Paper {
     analysis: Boolean(row.analysis_storage_path) || Boolean(originalSeed?.analysis),
     reason: recommendation?.reason ?? undefined,
     match: score == null || Number.isNaN(score) ? undefined : Math.round(score * 100),
-    hasPdf: Boolean(row.pdf_storage_path),
+    hasPdf: Boolean(row.pdf_storage_path) || Boolean(originalSeed?.externalPdfUrl),
     hasAnalysisFile: Boolean(row.analysis_storage_path),
-    sourceLinkKind: row.source_url || row.doi || row.arxiv_id ? "direct" : "search",
+    sourceLinkKind: row.source_url || row.doi || row.arxiv_id || originalSeed?.sourceUrl || originalSeed?.arxivId ? "direct" : "search",
   };
 }
 

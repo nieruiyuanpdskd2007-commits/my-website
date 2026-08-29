@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { libraryPapers, recommendedPapers, type Paper } from "@/app/papers/data";
 import { requirePaperOwner } from "@/lib/paper-auth";
 
 type PaperLinkRow = {
@@ -20,14 +21,17 @@ function safeHttpUrl(value: string | null) {
   }
 }
 
-function sourceUrl(paper: PaperLinkRow) {
+function sourceUrl(paper: PaperLinkRow, seed?: Paper) {
   const storedUrl = safeHttpUrl(paper.source_url);
   if (storedUrl) return storedUrl;
+
+  const seededUrl = safeHttpUrl(seed?.sourceUrl ?? null);
+  if (seededUrl) return seededUrl;
 
   const doi = paper.doi?.trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, "");
   if (doi) return `https://doi.org/${doi}`;
 
-  const arxivId = paper.arxiv_id?.trim().replace(/^arxiv:/i, "");
+  const arxivId = (paper.arxiv_id ?? seed?.arxivId)?.trim().replace(/^arxiv:/i, "");
   if (arxivId && /^[a-z0-9.\/-]+(?:v\d+)?$/i.test(arxivId)) {
     return `https://arxiv.org/abs/${arxivId}`;
   }
@@ -63,6 +67,7 @@ export async function GET(
 
   if (error || !data) return privateRedirect("/papers", request.url);
   const paper = data as PaperLinkRow;
+  const seed = [...libraryPapers, ...recommendedPapers].find((item) => item.id === slug);
   const storagePath = kind === "analysis"
     ? paper.analysis_storage_path
     : kind === "pdf"
@@ -79,5 +84,10 @@ export async function GET(
     }
   }
 
-  return privateRedirect(sourceUrl(paper), request.url);
+  const externalPdfUrl = safeHttpUrl(seed?.externalPdfUrl ?? null);
+  if (kind === "pdf" && externalPdfUrl) {
+    return privateRedirect(externalPdfUrl, request.url);
+  }
+
+  return privateRedirect(sourceUrl(paper, seed), request.url);
 }
